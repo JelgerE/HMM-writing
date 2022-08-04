@@ -1,7 +1,7 @@
 library(moveHMM)
 library(ggplot2)
 library(tidyr)
-library(ddply)
+library(plyr)
 library(dplyr)
 library(depmixS4)
 library(crawl)
@@ -93,15 +93,6 @@ HMMdat2 <- HMMdat2[order(as.numeric(rownames(HMMdat2))),,]
 # Get tracklengths to use in HMM later
 tracklengths <- data.frame(table(as.numeric(HMMdat2$ID)))
 
-# Find data distributions
-gamma <- egamma(HMMdat2$step)
-shape <- as.numeric(gamma$parameters[1])
-scale <- as.numeric(gamma$parameters[2])
-
-beta <- ebeta(HMMdat2$SI)
-a <- as.numeric(beta$parameters[1])
-b <- as.numeric(beta$parameters[2])
-
 # Construct HMMs using depmixS4
 # Just step length
 #HMMmod <- depmix(step ~ 1, data = HMMdat2, nstates = 2)
@@ -112,11 +103,14 @@ b <- as.numeric(beta$parameters[2])
 
 # Step length and SI
 HMMmod <- depmix(list(step ~ 1,SI ~ 1), data = HMMdat2, 
-                     family = list(gaussian(), gaussian()), nstates = 2)
+                 family = list(Gamma(), gaussian()), respstart = c(shape, scale, a, b, 1, 1), 
+                 nstates = 2, ntimes = tracklengths$Freq)
 
 
 # Fit HMM to data and calculate states+probabilities
-fitHMMmod <- fit(HMMmod)
+fitHMMmod <- fit(HMMmod) 
+# ==> Warning message: In em.depmix(object = object, maxit = emcontrol$maxit, tol = emcontrol$tol,  :
+                       #Log likelihood decreased on iteration 33 from -6417.22339094861 to -6417.61990695331
 HMMdat2$state <- as.factor(depmixS4::viterbi(fitHMMmod)$state)
 HMMdat2$prob1 <- depmixS4::viterbi(fitHMMmod)$S1
 HMMdat2$prob2 <- depmixS4::viterbi(fitHMMmod)$S2
@@ -127,27 +121,4 @@ mu <- ddply(HMMdat2, 'state', summarise,
             SI.mean = mean(SI), SI.sd = sd(SI),
             angle.mean = mean(angle), angle.sd = sd(angle))
 
-# Draw histograms
-ggplot(HMMdat2, aes(x=step, color = state)) +
-  geom_histogram(aes(y=..density..), binwidth = (1/10),
-                 colour = 1, fill = 'white') +
-  geom_density() +
-  #geom_vline(data=mu, aes(xintercept = step.mean, color=state)) + 
-  ggtitle('Histogram of step lengths') +
-  theme(plot.title=element_text(hjust=0.5))
 
-ggplot(HMMdat2, aes(x=SI, color = state)) +
-  geom_histogram(aes(y=..density..), binwidth = (1/10),
-                 colour = 1, fill = 'white') +
-  geom_density()+
-  #geom_vline(data=mu, aes(xintercept = SI.mean, color=state)) + 
-  ggtitle('Histogram of SI')+
-  theme(plot.title=element_text(hjust=0.5))
-
-ggplot(HMMdat2, aes(x=angle, color = state)) +
-  geom_histogram(aes(y=..density..), binwidth = (1/10),
-                 colour = 1, fill = 'white') +
-  geom_density()+
-  #geom_vline(data=mu, aes(xintercept = angle.mean, color=state)) + 
-  ggtitle('Histogram of angle')+
-  theme(plot.title=element_text(hjust=0.5))
