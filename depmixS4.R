@@ -5,13 +5,20 @@ library(plyr)
 library(dplyr)
 library(depmixS4)
 library(crawl)
+library(EnvStats)
+library(sf)
 
 # Read data
-fish <- read.csv(".\\data\\filtered_data_1_grayling_46909_HPE_RMSE_Vel.csv")
-fish$Time <- as.POSIXct(fish$Time)
+fish <- read.csv(".\\data\\Grayling_46909.csv")
+fish$dt <- as.POSIXct(fish$dt)
+names(fish)[names(fish) == 'dt'] <- 'Time'
+fish <- fish %>% select(Time, lon, lat)
+
+fish <- st_as_sf(fish, coords = c('lon', 'lat'), crs='epsg:4326')
+fish <- st_transform(fish, crs = 'epsg:32632')
 
 # Construct movement model and regularize data
-fishreg <- crwMLE(data = fish, coord = c('UTM.x', 'UTM.y'), Time.name = c("Time") , time.scale = 'secs')
+fishreg <- crwMLE(data = fish, Time.name = c("Time") , time.scale = 'secs')
 
 fishreg <- crwPredict(object.crwFit = fishreg, 
                       predTime = seq.POSIXt(from = min(fish$Time), to = max(fish$Time), by = '5 secs'), 
@@ -20,7 +27,7 @@ fishreg <- crwPredict(object.crwFit = fishreg,
 # Isolate predicted positions
 fishpred <- fishreg[fishreg$locType == 'p', ]
 
-# Pred data for HMM(= calculate steps and TAs)
+# Prep data for HMM(= calculate steps and TAs)
 HMMdat <- moveHMM::prepData(fishpred[c('Time', 'mu.x', 'mu.y')], coordNames = c('mu.x', 'mu.y'), type = 'UTM')
 #plot(HMMdat, compact=T)
 
@@ -93,6 +100,17 @@ HMMdat2 <- HMMdat2[order(as.numeric(rownames(HMMdat2))),,]
 # Get tracklengths to use in HMM later
 tracklengths <- data.frame(table(as.numeric(HMMdat2$ID)))
 
+# Find data distributions
+# Step length
+gamma <- egamma(HMMdat2$step)
+shape <- as.numeric(gamma$parameters[1])
+scale <- as.numeric(gamma$parameters[2])
+
+# Straightness Index
+beta <- ebeta(HMMdat2$SI)
+a <- as.numeric(beta$parameters[1])
+b <- as.numeric(beta$parameters[2])
+
 # Construct HMMs using depmixS4
 # Just step length
 #HMMmod <- depmix(step ~ 1, data = HMMdat2, nstates = 2)
@@ -103,7 +121,7 @@ tracklengths <- data.frame(table(as.numeric(HMMdat2$ID)))
 
 # Step length and SI
 HMMmod <- depmix(list(step ~ 1,SI ~ 1), data = HMMdat2, 
-                 family = list(Gamma(), gaussian()), respstart = c(shape, scale, a, b, 1, 1), 
+                 family = list(Gamma(), gaussian()), respstart = c(5, 10, a, b, 1, 1),
                  nstates = 2, ntimes = tracklengths$Freq)
 
 

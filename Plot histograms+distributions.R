@@ -4,7 +4,7 @@
 library(ggplot2)
 
 ggplot(HMMdat2, aes(x=step)) +
-  geom_histogram(aes(y=..density..), binwidth = (1/10),
+  geom_histogram(aes(y=..density..), #binwidth = (1/10),
                  colour = 1, fill = 'white') +
   geom_density() +
   geom_density(aes(y=..density.., color = state)) +
