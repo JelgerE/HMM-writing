@@ -1,5 +1,7 @@
 library(gamlss)
 library(gamlss.dist)
+library(rgdal)
+library(patchwork)
 
 BEmu <- a / (a+b)
 BEsigma <- (a*b) / ((a+b)^2 * (a+b+1))
@@ -32,6 +34,16 @@ time <- ggplot(HMMdat2, aes(x=Time, y=state)) +
   geom_point()
 time
 
-state1 <- ggplot(HMMdat2[(as.numeric(HMMdat2$state) - as.numeric(lag(HMMdat2$state))) == -1,] , aes(x=x, y=y)) + 
-  geom_point()
-state1
+shp <- readOGR(dsn = 'C:\\Users\\jelings\\OneDrive - UGent\\Documenten\\INBO\\Altusreid\\RStudio\\Altusried R\\shapefile\\new_river_shapefile.shp')
+  
+state1 <- ggplot(HMMdat2[HMMdat2$state == 1,] , aes(x=x, y=y)) + 
+  ggtitle('State 1') +
+  geom_point() +
+  geom_polygon(data = shp, aes(x = long, y = lat, group = group), colour = "black", fill = NA) +
+  theme(plot.title=element_text(hjust=0.5))
+state2 <- ggplot(HMMdat2[HMMdat2$state == 2,] , aes(x=x, y=y)) + 
+  ggtitle('State 2') +
+  geom_point() +
+  geom_polygon(data = shp, aes(x = long, y = lat, group = group), colour = "black", fill = NA) +
+  theme(plot.title=element_text(hjust=0.5))
+state1+state2

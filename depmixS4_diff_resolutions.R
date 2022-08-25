@@ -8,13 +8,20 @@ library(crawl)
 library(EnvStats)
 library(patchwork)
 library(grDevices)
+library(rgdal)
 
 # Read data
-fish <- read.csv(".\\data\\filtered_data_1_grayling_46909_HPE_RMSE_Vel.csv")
-fish$Time <- as.POSIXct(fish$Time)
+# Read data
+fish <- read.csv(".\\data\\Grayling_46909.csv")
+fish$dt <- as.POSIXct(fish$dt)
+names(fish)[names(fish) == 'dt'] <- 'Time'
+fish <- fish %>% select(Time, lon, lat)
+
+fish <- st_as_sf(fish, coords = c('lon', 'lat'), crs='epsg:4326')
+fish <- st_transform(fish, crs = 'epsg:32632')
 
 time_res <- c('5 secs', '10 secs', '15 secs', '30 secs', '60 secs', '2 mins', '5 mins')
-fishreg <- crwMLE(data = fish, coord = c('UTM.x', 'UTM.y'), Time.name = c("Time") , time.scale = 'secs')
+fishreg <- crwMLE(data = fish, Time.name = c("Time") , time.scale = 'secs')
 
 shp <- readOGR(dsn = 'C:\\Users\\jelings\\OneDrive - UGent\\Documenten\\INBO\\Altusreid\\RStudio\\Altusried R\\shapefile\\new_river_shapefile.shp')
 
@@ -122,7 +129,7 @@ for (res in time_res){
   
   # Step length and SI
   HMMmod <- depmix(list(step ~ 1,SI ~ 1), data = HMMdat2, 
-                   family = list(Gamma(), gaussian()), respstart = c(5, 10, a, b, 1, 1), # ==> Why 6 values? 2 for steps, 2 for SI, 2 for????
+                   family = list(Gamma(), gaussian()), respstart = c(1, 5, a, b, 1, 1), # ==> Why 6 values? 2 for steps, 2 for SI, 2 for????
                    nstates = 2, ntimes = tracklengths$Freq)
   
   
@@ -178,13 +185,13 @@ for (res in time_res){
     ggtitle("Turning Angle") +
     theme(plot.title=element_text(hjust=0.5))
   
-  jpeg(filename = paste('.\\figures\\', res, '_states.jpeg', sep=""))
+  jpeg(filename = paste('.\\figures\\', res, '_states_Ren.jpeg', sep=""))
   plot(steps + SI + TA +
          plot_layout(ncol = 2, guides = "collect") +
          plot_annotation(res, theme = theme(plot.title = element_text(hjust = 0.5))))
   dev.off()
   
-  jpeg(filename = paste('.\\figures\\', res, '_map.jpeg', sep=""))
+  jpeg(filename = paste('.\\figures\\', res, '_map_Ren.jpeg', sep=""))
   if (res == "10 secs" | res == "30 secs" | res == "60 secs" | res == "5 mins"){
   state1 <- ggplot(HMMdat2[HMMdat2$state == 2,] , aes(x=x, y=y)) + 
     ggtitle("State 1") +
