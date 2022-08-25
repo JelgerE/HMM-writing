@@ -12,7 +12,7 @@ library(sf)
 fish <- read.csv(".\\data\\Grayling_46909.csv")
 fish$dt <- as.POSIXct(fish$dt)
 names(fish)[names(fish) == 'dt'] <- 'Time'
-fish <- fish %>% select(Time, lon, lat)
+#fish <- fish %>% select(Time, lon, lat)
 
 fish <- st_as_sf(fish, coords = c('lon', 'lat'), crs='epsg:4326')
 fish <- st_transform(fish, crs = 'epsg:32632')
@@ -121,7 +121,7 @@ b <- as.numeric(beta$parameters[2])
 
 # Step length and SI
 HMMmod <- depmix(list(step ~ 1,SI ~ 1), data = HMMdat2, 
-                 family = list(Gamma(), gaussian()), respstart = c(5, 10, a, b, 1, 1),
+                 family = list(Gamma(), gaussian()), respstart = c(1, 5, a, b, 1, 1),
                  nstates = 2, ntimes = tracklengths$Freq)
 
 
